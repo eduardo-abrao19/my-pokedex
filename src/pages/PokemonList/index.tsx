@@ -1,19 +1,27 @@
-import React from 'react';
-import { View, Text, FlatList, Image, TouchableOpacity } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, FlatList, Image, TouchableOpacity,ActivityIndicator} from 'react-native';
 import { createStyles } from './styles';
 import { useTheme } from '../../global/themes';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../routes';
+import { PokemonListResponse } from '../../services/pokeapi';
+
+type PokemonListItem = {
+  id: number;
+  name: string;
+  imageUrl: string;
+  types: string[];
+};
 
 // ... (Mantenha o MOCK_POKEMON_LIST aqui)
-const MOCK_POKEMON_LIST = [
-  {
-    id: 1,
-    name: 'bulbasaur',
-    imageUrl: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/1.png',
-    types: ['grass', 'poison'],
-  },
+const MOCK_POKEMON_LIST: PokemonListItem[] = [
+{
+  id: 1,
+  name: 'bulbasaur',
+  imageUrl: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/1.png',
+  types: ['grass', 'poison'],
+},
   {
     id: 4,
     name: 'charmander',
@@ -31,21 +39,44 @@ const MOCK_POKEMON_LIST = [
 export default function PokemonListScreen() {
   const theme = useTheme();
   const styles = createStyles(theme);
-  const Navigation = useNavigation<NativeStackNavigationProp<RootStackParamList, 'PokemonList'>>();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList, 'PokemonList'>>();
+
+  const [pokemon, setPokemons] = useState<PokemonListItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setIsLoading(true);
+    setError(null);
+
+    const timer = setTimeout(() => {
+      try {
+        setPokemons(MOCK_POKEMON_LIST);
+      } catch (e) {
+        setError('Falha na lista de Pokemons');
+      } finally {
+        setIsLoading(false);
+      }
+    }, 1000);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, []);
 
   // Função para deslogar e limpar a pilha de navegação
   const handleLogout = () => {
-    Navigation.reset({
+    navigation.reset({
       index: 0,
       routes: [{ name: 'Login' }]
     });
   };
 
   const renderItem = ({ item }: { item: any }) => (
-    <TouchableOpacity 
-        style={styles.card} 
-        activeOpacity={0.8} 
-        onPress={() => Navigation.navigate('PokemonDetail', {id: item.id})}
+    <TouchableOpacity
+      style={styles.card}
+      activeOpacity={0.8}
+      onPress={() => navigation.navigate('PokemonDetail', { id: item.id })}
     >
       <View style={styles.cardLeft}>
         <Text style={styles.cardName}>{item.name}</Text>
@@ -61,24 +92,40 @@ export default function PokemonListScreen() {
     </TouchableOpacity>
   );
 
+  if (isLoading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <Text style={{ marginTop: 16, color: theme.colors.text }}>Carregando lista (simulado)...</Text>
+      </View>
+    );
+  }
+  if (error) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <Text style={{ color: theme.colors.text, marginBottom: 16 }}>{error}</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       {/* Cabeçalho com Título e Botão Sair */}
-      <View style={{ 
-        flexDirection: 'row', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
-        paddingHorizontal: 20, 
+      <View style={{
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 20,
         paddingTop: 50, // Ajuste dependendo do entalhe do celular
-        paddingBottom: 10 
+        paddingBottom: 10
       }}>
         <Text style={styles.headerTitle}>Pokédex</Text>
-        
+
         <TouchableOpacity onPress={handleLogout}>
-          <Text style={{ 
+          <Text style={{
             color: '#FF4C4C', // Um vermelho suave para indicar "sair"
             fontWeight: 'bold',
-            fontSize: 16 
+            fontSize: 16
           }}>
             Sair
           </Text>
