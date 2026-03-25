@@ -1,3 +1,5 @@
+import { StackRouterOptions } from "@react-navigation/native";
+
 const BASE_URL = 'https://pokeapi.co/api/v2';
 
 type FetchOptions = {
@@ -29,6 +31,45 @@ export async function fetchPokemonList(
   return response.json();
 }
 
+export type PokemonListItemUI = {
+  id: number;
+  name: string;
+  imagemUrl: string;
+};
+
+function exportIdPokemon(url: string): number {
+  const parts = url.split('/').filter(Boolean)
+  return Number(parts[parts.length - 1]);
+}
+
+export async function fetchPokemonListPage(
+  limit = 15,
+  offset = 0,
+  options?: FetchOptions
+): Promise<{
+  items: PokemonListItemUI[];
+  count: number;
+  next: string | null;
+}> {
+  const data = await fetchPokemonList(limit, offset, options);
+
+  const items = data.results.map((pokemon) =>{
+    const id = exportIdPokemon(pokemon.url);
+    
+    return{
+      id,
+      name: pokemon.name,
+      imagemUrl: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`,
+
+    }
+  })
+
+  return{
+    items,
+    count: data.count,
+    next: data.next
+  }
+}
 export type PokemonDetailResponse = {
   id: number;
   name: string;
@@ -72,9 +113,9 @@ export async function fetchPokemonDetail(
 }
 
 export type PokemonSpeciesResponse = {
-  flavor_text_entries:{
+  flavor_text_entries: {
     flavor_text: string;
-    language:{
+    language: {
       name: string;
       url: string;
     };
@@ -88,14 +129,14 @@ export type PokemonSpeciesResponse = {
 export async function fetchPokemonSpacies(
   nameOrId: string | number,
   options?: FetchOptions,
-):Promise<PokemonSpeciesResponse> {
+): Promise<PokemonSpeciesResponse> {
   const url = `${BASE_URL}/pokemon-species/${nameOrId}`
-  const response = await fetch(url, {signal: options?.signal });
+  const response = await fetch(url, { signal: options?.signal });
 
-  if(!response.ok) {
+  if (!response.ok) {
     throw new Error('Falha na descrição');
   }
 
   return response.json();
-  
+
 }
