@@ -19,8 +19,8 @@ export default function PokemonListScreen() {
   const [offset, setOffset] = useState(0);
   const [hasNextPage, setHasNextPage] = useState(true);
 
-  const [isInitialLoading, setIsLoadingMore] = useState(true);
-  const [isLoadingMore, setIsInitialLoading] = useState(false);
+  const [isInitialLoading, setIsInitialLoading ] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const [error, setError] = useState<string | null>(null);

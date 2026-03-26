@@ -1,5 +1,3 @@
-import { StackRouterOptions } from "@react-navigation/native";
-
 const BASE_URL = 'https://pokeapi.co/api/v2';
 
 type FetchOptions = {
@@ -34,42 +32,57 @@ export async function fetchPokemonList(
 export type PokemonListItemUI = {
   id: number;
   name: string;
-  imagemUrl: string;
+  imageUrl: string;
+  types: string[];
 };
 
-function exportIdPokemon(url: string): number {
-  const parts = url.split('/').filter(Boolean)
-  return Number(parts[parts.length - 1]);
-}
-
+type PokemonDetailListItemResponse = {
+  id: number;
+  name: string;
+  sprites: {
+    front_default: string | null;
+  };
+  types: {
+    slot: number;
+    type: {
+      name: string;
+      url: string;
+    };
+  }[];
+};
 export async function fetchPokemonListPage(
-  limit = 15,
+  limit = 20,
   offset = 0,
-  options?: FetchOptions
+  options?: FetchOptions,
 ): Promise<{
   items: PokemonListItemUI[];
   count: number;
   next: string | null;
 }> {
   const data = await fetchPokemonList(limit, offset, options);
-
-  const items = data.results.map((pokemon) =>{
-    const id = exportIdPokemon(pokemon.url);
-    
-    return{
-      id,
-      name: pokemon.name,
-      imagemUrl: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`,
-
-    }
-  })
-
-  return{
+  // N+1: para cada item da página, buscamos detalhes para pegar tipos
+  const details = await Promise.all(
+    data.results.map(async (pokemon) => {
+      const response = await fetch(pokemon.url, { signal: options?.signal });
+      if (!response.ok) {
+        throw new Error(`Falha ao buscar detalhes de ${pokemon.name}`);
+      }
+      return (await response.json()) as PokemonDetailListItemResponse;
+    }),
+  );
+  const items: PokemonListItemUI[] = details.map((detail) => ({
+    id: detail.id,
+    name: detail.name,
+    imageUrl: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${detail.id}.png`,
+    types: detail.types.map((t) => t.type.name),
+  }));
+  return {
     items,
     count: data.count,
-    next: data.next
-  }
+    next: data.next,
+  };
 }
+
 export type PokemonDetailResponse = {
   id: number;
   name: string;
@@ -122,21 +135,20 @@ export type PokemonSpeciesResponse = {
     version: {
       name: string;
       url: string;
-    };
+    }
   }[];
 }
 
-export async function fetchPokemonSpacies(
+export async function fetchPokemonSpecies(
   nameOrId: string | number,
   options?: FetchOptions,
 ): Promise<PokemonSpeciesResponse> {
-  const url = `${BASE_URL}/pokemon-species/${nameOrId}`
+  const url = `${BASE_URL}/pokemon-species/${nameOrId}`;
   const response = await fetch(url, { signal: options?.signal });
 
   if (!response.ok) {
-    throw new Error('Falha na descrição');
+    throw new Error('Falha ao buscar descrição do Pokémon');
   }
 
   return response.json();
-
 }
