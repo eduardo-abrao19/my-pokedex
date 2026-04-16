@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, Image, ScrollView, ActivityIndicator, TouchableOpacity, Share } from 'react-native';
 import { createStyles } from './styles';
 import { useTheme } from '../../global/themes';
-import { useRoute } from '@react-navigation/native';
 import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../../routes';
 import {
@@ -12,6 +11,9 @@ import {
   type PokemonSpeciesResponse
 } from '../../services/pokeapi';
 import { isFavorite, toggleFavorite } from '../../services/favoritesStorage';
+import { useRoute, useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
 
 
 const TYPE_COLORS: Record<string, string> = {
@@ -56,6 +58,12 @@ export default function PokemonDetailScreen() {
 
   const [favorite, setFavorite] = useState(false);
   const [favoriteLoading, setFavoriteLoading] = useState(true);
+
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList, 'PokemonDetail'>>();
+
+  function handleOpenCamera() {
+    navigation.navigate('PokemonCamera', { id });
+  }
 
 
   function getPokemonDescriptionFromSpecies(
@@ -252,6 +260,21 @@ export default function PokemonDetailScreen() {
       >
         <Text style={{ fontWeight: '700', color: '#fff' }}>Compartilhar</Text>
       </TouchableOpacity>
+
+      <TouchableOpacity
+        onPress={handleOpenCamera}
+        style={{
+          backgroundColor: '#16a34a',
+          paddingHorizontal: 16,
+          paddingVertical: 10,
+          borderRadius: 999,
+          alignSelf: 'flex-start',
+          marginBottom: 16,
+        }}
+      >
+        <Text style={{ fontWeight: '700', color: '#fff' }}>Abrir câmera</Text>
+      </TouchableOpacity>
+
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Sobre</Text>
