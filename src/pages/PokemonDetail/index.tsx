@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, Image, ScrollView, ActivityIndicator, TouchableOpacity, Share } from 'react-native';
+import { View, Text, Image, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { createStyles } from './styles';
 import { useTheme } from '../../global/themes';
+import { useRoute, useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../../routes';
 import {
@@ -11,10 +13,6 @@ import {
   type PokemonSpeciesResponse
 } from '../../services/pokeapi';
 import { isFavorite, toggleFavorite } from '../../services/favoritesStorage';
-import { useRoute, useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-
-
 
 const TYPE_COLORS: Record<string, string> = {
   normal: '#A8A77A',
@@ -37,25 +35,17 @@ const TYPE_COLORS: Record<string, string> = {
   fairy: '#D685AD',
 };
 
-
-function getTypeColor(type: string) {
-  return TYPE_COLORS[type] ?? '#A8A8A8';
-}
-
-
 export default function PokemonDetailScreen() {
   const theme = useTheme();
   const styles = createStyles(theme);
   const route = useRoute<RouteProp<RootStackParamList, 'PokemonDetail'>>();
-  const { id } = route.params;
-
+  
+  const { id, photoUri } = route.params;
 
   const [pokemon, setPokemon] = useState<PokemonDetailResponse | null>(null);
   const [description, setDescription] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-
   const [favorite, setFavorite] = useState(false);
   const [favoriteLoading, setFavoriteLoading] = useState(true);
 
@@ -65,93 +55,44 @@ export default function PokemonDetailScreen() {
     navigation.navigate('PokemonCamera', { id });
   }
 
-
-  function getPokemonDescriptionFromSpecies(
-    species: PokemonSpeciesResponse,
-  ): string | null {
-    const ptEntry = species.flavor_text_entries.find(
-      (entry) => entry.language.name === 'pt-BR'
-    );
-    if (ptEntry) {
-      return ptEntry.flavor_text.replace(/\s+/g, ' ').replace(/\f/g, ' ').trim();
-    }
-    const enEntry = species.flavor_text_entries.find(
-      (entry) => entry.language.name === 'en',
-    );
-    if (enEntry) {
-      return enEntry.flavor_text.replace(/\s+/g, ' ').replace(/\f/g, ' ').trim();
-    }
+  function getPokemonDescriptionFromSpecies(species: PokemonSpeciesResponse): string | null {
+    const ptEntry = species.flavor_text_entries.find((entry) => entry.language.name === 'pt-BR');
+    if (ptEntry) return ptEntry.flavor_text.replace(/\s+/g, ' ').replace(/\f/g, ' ').trim();
+    const enEntry = species.flavor_text_entries.find((entry) => entry.language.name === 'en');
+    if (enEntry) return enEntry.flavor_text.replace(/\s+/g, ' ').replace(/\f/g, ' ').trim();
     return null;
   }
-
 
   async function handleToggleFavorite() {
     if (!pokemon) return;
     const summary = {
       id: pokemon.id,
       name: pokemon.name,
-      imageUrl:
-        pokemon.sprites.front_default ??
-        `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${pokemon.id}.png`,
-      types: pokemon.types.map((t) => t.type.name),
+      imageUrl: pokemon.sprites.front_default ?? `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${pokemon.id}.png`,
+      types: pokemon.types.map((t ) => t.type.name),
     };
     const updated = await toggleFavorite(summary);
     setFavorite(updated.some((item) => item.id === pokemon.id));
   }
 
-  async function handleSharePokemon() {
-    if (!pokemon) return;
-
-    const pokeApiUrl = `https://www.pokemon.com/br/pokedex/${pokemon.name}/`;
-    const message = `Olha esse Pokémon na Pokédex: ${pokemon.name} (#${String(pokemon.id).padStart(3, '0')})\n${pokeApiUrl}`;
-
-    try {
-      const result = await Share.share(
-        {
-          message,
-          title: `Pokémon: ${pokemon.name}`,
-        },
-        { subject: `Pokémon: ${pokemon.name}` },
-      );
-
-      if (result.action === Share.sharedAction) {
-        if (result.activityType) {
-        }
-      } else if (result.action === Share.dismissedAction) {
-      }
-    } catch (error) {
-      console.warn('Erro ao compartilhar:', error);
-    }
-  }
-
   useEffect(() => {
     const controller = new AbortController();
-
-
     async function loadPokemon() {
       try {
         setIsLoading(true);
         setError(null);
-
-
         const [detail, species] = await Promise.all([
           fetchPokemonDetail(id, { signal: controller.signal }),
           fetchPokemonSpecies(id, { signal: controller.signal }),
         ]);
-
-
         setPokemon(detail);
         setDescription(getPokemonDescriptionFromSpecies(species));
       } catch (e) {
-        if ((e as Error).name !== 'AbortError') {
-          setError('Não foi possível carregar os dados do pokémon!');
-        }
+        if ((e as Error).name !== 'AbortError') setError('Não foi possível carregar os dados!');
       } finally {
         setIsLoading(false);
       }
     }
-
-
     async function loadFavoriteStatus() {
       try {
         const result = await isFavorite(id);
@@ -160,49 +101,26 @@ export default function PokemonDetailScreen() {
         setFavoriteLoading(false);
       }
     }
-
-
     loadPokemon();
     loadFavoriteStatus();
-
-
-    return () => { controller.abort(); };
+    return () => controller.abort();
   }, [id]);
-
 
   if (isLoading) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text style={{ marginTop: 16, color: theme.colors.text }}>Carregando detalhes (simulado)...</Text>
       </View>
     );
   }
-
-
-
 
   if (error || !pokemon) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <Text style={{ color: theme.colors.text, marginBottom: 16 }}>
-          {error ?? 'Erro inesperado na simulação.'}
-        </Text>
-        <TouchableOpacity
-          //onPress={() => navigation.goBack()}
-          style={{
-            paddingHorizontal: 16,
-            paddingVertical: 10,
-            borderRadius: 24,
-            backgroundColor: theme.colors.accent,
-          }}
-        >
-          <Text style={{ color: theme.colors.text, fontWeight: 'bold' }}>Voltar</Text>
-        </TouchableOpacity>
+        <Text style={{ color: theme.colors.text }}>{error ?? 'Erro inesperado.'}</Text>
       </View>
     );
   }
-
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -212,90 +130,52 @@ export default function PokemonDetailScreen() {
           <Text style={styles.id}>#{String(pokemon.id).padStart(3, '0')}</Text>
         </View>
 
-
         <View style={styles.typeContainer}>
           {pokemon.types.map(({ type }) => (
-            <View
-              key={type.name}
-              style={[styles.typeBadge, { backgroundColor: TYPE_COLORS[type.name] ?? '#A8A8A8' }]}
-            >
+            <View key={type.name} style={[styles.typeBadge, { backgroundColor: TYPE_COLORS[type.name] ?? '#A8A8A8' }]}>
               <Text style={styles.typeText}>{type.name}</Text>
             </View>
           ))}
         </View>
 
-
-        {pokemon.sprites.front_default ?
-          (<Image source={{ uri: pokemon.sprites.front_default }} style={styles.image} />) :
-          null}
+        {photoUri ? (
+          <View style={{ alignItems: 'center', marginTop: 16 }}>
+            <Image 
+              source={{ uri: photoUri }} 
+              style={[styles.image, { borderRadius: 12, borderWidth: 3, borderColor: '#16a34a' }]} 
+            />
+            <Text style={{ fontSize: 12, color: theme.colors.textSecondary, marginTop: 4 }}>
+              Foto capturada em cache
+            </Text>
+          </View>
+        ) : (
+          pokemon.sprites.front_default && (
+            <Image source={{ uri: pokemon.sprites.front_default }} style={styles.image} />
+          )
+        )}
       </View>
-
-      <TouchableOpacity
-        onPress={handleToggleFavorite}
-        disabled={favoriteLoading}
-        style={{
-          backgroundColor: favorite ? '#FFCB05' : '#E5E7EB',
-          paddingHorizontal: 16,
-          paddingVertical: 10,
-          borderRadius: 999,
-          alignSelf: 'flex-start',
-          marginBottom: 16,
-        }}
-      >
-        <Text style={{ fontWeight: '700', color: '#111827' }}>
-          {favorite ? '★ Favorito' : '☆ Favoritar'}
-        </Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        onPress={handleSharePokemon}
-        style={{
-          backgroundColor: '#2563eb',
-          paddingHorizontal: 16,
-          paddingVertical: 10,
-          borderRadius: 999,
-          alignSelf: 'flex-start',
-          marginBottom: 16,
-        }}
-      >
-        <Text style={{ fontWeight: '700', color: '#fff' }}>Compartilhar</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        onPress={handleOpenCamera}
-        style={{
-          backgroundColor: '#16a34a',
-          paddingHorizontal: 16,
-          paddingVertical: 10,
-          borderRadius: 999,
-          alignSelf: 'flex-start',
-          marginBottom: 16,
-        }}
-      >
-        <Text style={{ fontWeight: '700', color: '#fff' }}>Abrir câmera</Text>
-      </TouchableOpacity>
-
+      
+      <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
+        <TouchableOpacity
+          onPress={handleToggleFavorite}
+          disabled={favoriteLoading}
+          style={{ backgroundColor: favorite ? '#FFCB05' : '#E5E7EB', padding: 10, borderRadius: 999 }}
+        >
+          <Text style={{ fontWeight: '700' }}>{favorite ? '★ Favorito' : '☆ Favoritar'}</Text>
+        </TouchableOpacity>
+          
+        <TouchableOpacity
+          onPress={handleOpenCamera}
+          style={{ backgroundColor: '#16a34a', padding: 10, borderRadius: 999 }}
+        >
+          <Text style={{ fontWeight: '700', color: '#fff' }}>Tirar nova foto</Text>
+        </TouchableOpacity>
+      </View>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Sobre</Text>
-        <Text style={styles.sectionText}>
-          {description ?? 'Descrição não disponível.'}
-        </Text>
+        <Text style={styles.sectionText}>{description ?? 'Sem descrição.'}</Text>
       </View>
-
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Informações básicas</Text>
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Altura</Text>
-          <Text style={styles.infoValue}>{pokemon.height / 10} m</Text>
-        </View>
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Peso</Text>
-          <Text style={styles.infoValue}>{pokemon.weight / 10} kg</Text>
-        </View>
-      </View>
-
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Stats base</Text>
@@ -308,4 +188,4 @@ export default function PokemonDetailScreen() {
       </View>
     </ScrollView>
   );
-};//
+}
