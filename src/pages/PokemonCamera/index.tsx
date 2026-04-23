@@ -46,11 +46,13 @@ export default function PokemonCameraScreen() {
     });
 
     if (photo && photo.uri) {
-      // Navega de volta para a tela de detalhes passando o URI da foto
-      navigation.navigate('PokemonDetail', { 
-        id: id, 
-        photoUri: photo.uri 
-      });
+      navigation.reset({
+  index: 1, // Define que a segunda tela (índice 1) é a ativa
+  routes: [
+    { name: 'PokemonList' }, // Mantém a Home no histórico
+    { name: 'PokemonDetail', params: { id: id, photoUri: photo.uri } },
+  ],
+});
     }
   }
 
