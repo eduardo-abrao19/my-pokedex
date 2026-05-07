@@ -13,6 +13,8 @@ import {
   type PokemonSpeciesResponse
 } from '../../services/pokeapi';
 import { isFavorite, toggleFavorite } from '../../services/favoritesStorage';
+import { notifyPokemonFavorited } from '../../services/localNotifications';
+
 
 const TYPE_COLORS: Record<string, string> = {
   normal: '#A8A77A',
@@ -39,7 +41,7 @@ export default function PokemonDetailScreen() {
   const theme = useTheme();
   const styles = createStyles(theme);
   const route = useRoute<RouteProp<RootStackParamList, 'PokemonDetail'>>();
-  
+
   const { id, photoUri } = route.params;
 
   const [pokemon, setPokemon] = useState<PokemonDetailResponse | null>(null);
@@ -69,10 +71,15 @@ export default function PokemonDetailScreen() {
       id: pokemon.id,
       name: pokemon.name,
       imageUrl: pokemon.sprites.front_default ?? `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${pokemon.id}.png`,
-      types: pokemon.types.map((t ) => t.type.name),
+      types: pokemon.types.map((t) => t.type.name),
     };
     const updated = await toggleFavorite(summary);
+    const isNowFavorite = updated.some((item) => item.id == pokemon.id);
     setFavorite(updated.some((item) => item.id === pokemon.id));
+
+    if (isNowFavorite) {
+      await notifyPokemonFavorited(pokemon.name);
+    }
   }
 
   useEffect(() => {
@@ -140,9 +147,9 @@ export default function PokemonDetailScreen() {
 
         {photoUri ? (
           <View style={{ alignItems: 'center', marginTop: 16 }}>
-            <Image 
-              source={{ uri: photoUri }} 
-              style={[styles.image, { borderRadius: 12, borderWidth: 3, borderColor: '#16a34a' }]} 
+            <Image
+              source={{ uri: photoUri }}
+              style={[styles.image, { borderRadius: 12, borderWidth: 3, borderColor: '#16a34a' }]}
             />
             <Text style={{ fontSize: 12, color: theme.colors.textSecondary, marginTop: 4 }}>
               Foto capturada em cache
@@ -154,7 +161,7 @@ export default function PokemonDetailScreen() {
           )
         )}
       </View>
-      
+
       <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
         <TouchableOpacity
           onPress={handleToggleFavorite}
@@ -163,7 +170,7 @@ export default function PokemonDetailScreen() {
         >
           <Text style={{ fontWeight: '700' }}>{favorite ? '★ Favorito' : '☆ Favoritar'}</Text>
         </TouchableOpacity>
-          
+
         <TouchableOpacity
           onPress={handleOpenCamera}
           style={{ backgroundColor: '#16a34a', padding: 10, borderRadius: 999 }}
